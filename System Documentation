@@ -1,0 +1,297 @@
+# Neurolov Computing System Documentation
+
+## 1. System Overview & Architecture
+
+### 1.1 System Architecture
+- **Frontend**: React-based Telegram WebApp
+- **Backend**: Node.js/Express REST API
+- **Database**: MongoDB with Mongoose ODM
+- **Authentication**: JWT-based with Telegram WebApp integration
+- **Caching**: Redis for session and achievement processing
+- **Background Processing**: Bull for queue management
+- **Monitoring**: Prometheus/Winston for metrics and logging
+
+### 1.2 Key Components
+
+#### Frontend Components
+- **Core Components**: Authentication, User Dashboard, GPU Computing Interface
+- **GamePlay Elements**: Achievement System, Quest Management, Leaderboard
+- **Social Features**: Referral System, Friend List
+- **User Management**: Profile, Settings, Wallet Integration
+
+#### Backend Services
+- **API Services**: User Management, Computing Operations, Quest/Achievement Processing
+- **Background Workers**: Achievement Processing, Leaderboard Updates
+- **Scheduled Tasks**: Daily/Weekly Quest Resets, Leaderboard Calculations
+- **Integration Services**: Telegram Bot API Integration
+
+### 1.3 Data Flow
+1. User authenticates via Telegram WebApp
+2. JWT token generated for subsequent API calls
+3. Real-time computing operations through WebSocket
+4. Background processing for achievements and rewards
+5. Periodic updates for leaderboards and quests
+
+## 2. Implementation Guide
+
+### 2.1 Prerequisites
+```bash
+# Required software
+Node.js >= 16.x
+MongoDB >= 5.0
+Redis >= 6.0
+PM2 (for production deployment)
+```
+
+### 2.2 Environment Setup
+```bash
+# Backend environment variables
+NODE_ENV=production
+PORT=3000
+MONGODB_URI=mongodb://localhost:27017/neurolov
+REDIS_URL=redis://localhost:6379
+JWT_SECRET=your_jwt_secret
+TELEGRAM_BOT_TOKEN=your_bot_token
+
+# Frontend environment variables
+REACT_APP_API_BASE_URL=https://api.neurolov.com
+REACT_APP_AUTH_BASE_URL=https://api.neurolov.com/auth
+REACT_APP_TELEGRAM_BOT_USERNAME=neurolo_bot
+```
+
+### 2.3 Deployment Structure
+```
+/opt/neurolov/
+├── backend/
+│   ├── dist/
+│   ├── node_modules/
+│   └── ecosystem.config.js
+├── frontend/
+│   ├── build/
+│   └── node_modules/
+├── logs/
+├── nginx/
+└── docker-compose.yml
+```
+
+## 3. Integration Points
+
+### 3.1 Telegram WebApp Integration
+```javascript
+// Frontend integration
+const initTelegramAuth = async () => {
+  const tg = window.Telegram?.WebApp;
+  if (!tg) throw new Error('Telegram WebApp is not available');
+  
+  await tg.ready();
+  const initData = tg.initData;
+  return initData;
+};
+
+// Backend verification
+const verifyTelegramWebAppData = (initData) => {
+  // Implementation in telegramUtils.js
+};
+```
+
+### 3.2 API Integration Points
+- Authentication: `/auth/telegram`
+- User Operations: `/api/users/*`
+- Computing Operations: `/api/compute/*`
+- Social Features: `/api/referral/*`
+- Game Features: `/api/quests/*`, `/api/achievements/*`
+
+### 3.3 External Service Integration
+- Telegram Bot API
+- Redis for caching and queues
+- MongoDB Atlas for database
+- CDN for static assets
+
+## 4. Migration Strategy
+
+### 4.1 Database Migration
+1. **Pre-migration Tasks**
+   ```bash
+   # Create database backup
+   mongodump --db neurolov --out /backup/
+   
+   # Verify backup integrity
+   mongorestore --db neurolov_test --drop /backup/neurolov/
+   ```
+
+2. **Schema Migration**
+   - Use Mongoose migration scripts
+   - Implement rollback mechanisms
+   - Verify data integrity post-migration
+
+### 4.2 Application Migration
+1. **Backend Migration**
+   - Deploy new version to staging
+   - Run integration tests
+   - Gradually roll out to production servers
+
+2. **Frontend Migration**
+   - Build and deploy to CDN
+   - Implement feature flags for gradual rollout
+   - Monitor user feedback and metrics
+
+## 5. Testing Protocol
+
+### 5.1 Testing Levels
+1. **Unit Testing**
+   ```javascript
+   // Example test structure
+   describe('UserController', () => {
+     it('should authenticate user', async () => {
+       // Test implementation
+     });
+   });
+   ```
+
+2. **Integration Testing**
+   ```javascript
+   // API integration tests
+   describe('API Integration', () => {
+     it('should complete full user journey', async () => {
+       // Test implementation
+     });
+   });
+   ```
+
+3. **Load Testing**
+   ```bash
+   # Using Artillery for load testing
+   artillery run load-tests/compute-operations.yml
+   ```
+
+### 5.2 Test Coverage Requirements
+- Unit Tests: Minimum 80% coverage
+- Integration Tests: Critical path coverage
+- E2E Tests: Core user journeys
+- Performance Tests: Response time < 200ms
+
+## 6. Monitoring & Maintenance
+
+### 6.1 Monitoring Setup
+```javascript
+// Prometheus metrics
+const httpRequestDurationMicroseconds = new prometheus.Histogram({
+  name: 'http_request_duration_seconds',
+  help: 'Duration of HTTP requests in seconds',
+  labelNames: ['method', 'route', 'code'],
+  buckets: [0.1, 0.3, 0.5, 0.7, 1, 3, 5, 7, 10]
+});
+
+// Winston logging
+const logger = winston.createLogger({
+  level: process.env.LOG_LEVEL || 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  transports: [
+    new winston.transports.DailyRotateFile({
+      filename: 'logs/application-%DATE%.log',
+      datePattern: 'YYYY-MM-DD',
+      maxSize: '20m',
+      maxFiles: '14d'
+    })
+  ]
+});
+```
+
+### 6.2 Alert Configuration
+```yaml
+# Prometheus Alert Rules
+groups:
+- name: neurolov_alerts
+  rules:
+  - alert: HighErrorRate
+    expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      description: "High error rate detected"
+```
+
+### 6.3 Maintenance Procedures
+1. **Daily Maintenance**
+   - Log rotation
+   - Metric collection
+   - Performance monitoring
+
+2. **Weekly Maintenance**
+   - Database backup
+   - Security updates
+   - Performance optimization
+
+3. **Monthly Maintenance**
+   - System-wide audits
+   - Capacity planning
+   - Feature analysis
+
+### 6.4 Backup Strategy
+```bash
+# Database backup script
+#!/bin/bash
+DATE=$(date +%Y%m%d)
+mongodump --db neurolov --out /backup/$DATE/
+aws s3 sync /backup/$DATE s3://neurolov-backup/
+
+# Log rotation
+/usr/sbin/logrotate /etc/logrotate.d/neurolov
+```
+
+### 6.5 Disaster Recovery
+1. **Data Recovery**
+   - Regular backups to S3
+   - Point-in-time recovery capability
+   - Automated restore testing
+
+2. **Service Recovery**
+   - Automated failover configuration
+   - Multi-region deployment
+   - Regular DR drills
+
+## 7. Security Measures
+
+### 7.1 API Security
+```javascript
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100
+});
+
+// Security headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", 'cdnjs.cloudflare.com'],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: []
+    }
+  }
+}));
+```
+
+### 7.2 Data Security
+- End-to-end encryption for sensitive data
+- Regular security audits
+- Compliance with data protection regulations
+
+## 8. Scaling Strategy
+
+### 8.1 Infrastructure Scaling
+- Horizontal scaling for API servers
+- Vertical scaling for database
+- CDN for static content
+- Load balancing configuration
+
+### 8.2 Application Scaling
+- Microservices architecture
+- Caching strategy
+- Database optimization
+- Resource monitoring and adjustment
